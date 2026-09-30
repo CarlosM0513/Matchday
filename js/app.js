@@ -145,7 +145,7 @@ const A={
  async reqs(e){
   const m=matches.find(x=>x.id===e.dataset.id);if(!m||m.owner_id!==session.user.id)return;
   const pend=requests.filter(r=>r.match_id===m.id&&r.estado==='pendiente');
-  openM(`<h2 style="margin-top:0">Solicitudes · ${esc(m.nombre)}</h2>`+(pend.length?pend.map(r=>`<div class="card" style="margin-bottom:8px"><b>${esc(r.pos)}</b><div class="lbl">${esc(r.comentario||'Sin comentario')}</div><div class="row" style="margin-top:8px"><button class="btn s" data-a="resp" data-m="${m.id}" data-id="${r.id}" data-ok="1">Aceptar</button><button class="btn s r" data-a="resp" data-m="${m.id}" data-id="${r.id}">Rechazar</button></div></div>`).join(''):empty('Sin solicitudes.'))
+  openM(`<h2 style="margin-top:0">Solicitudes · ${esc(m.nombre)}</h2>`+(pend.length?pend.map(r=>`<div class="card" style="margin-bottom:8px"><b>${esc(r.pos)}</b><div class="lbl">${esc(r.comentario||'Sin comentario')}</div><div class="row" style="margin-top:8px"><button class="btn s" data-a="resp" data-m="${m.id}" data-id="${r.id}" data-ok="1">Aceptar</button><button class="btn s r" data-a="resp" data-m="${m.id}" data-id="${r.id}">Rechazar</button></div></div>`).join(''):empty('Sin solicitudes.')));
  },
  async resp(e){
   const m=matches.find(x=>x.id===e.dataset.m);if(!m||m.owner_id!==session.user.id)return;
