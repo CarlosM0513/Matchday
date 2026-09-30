@@ -7,6 +7,8 @@ const DB={
  del(k,id){DB.set(k,DB.get(k,[]).filter(x=>x.id!==id))}
 };
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const SESSION=DB.get('session_id',null)||uid(); DB.set('session_id',SESSION);
+const isOwner=o=>!!o&&o.owner===SESSION;
 // ---------- stats por posición ----------
 const GEN=['partidos','goles','asistencias','mvp','victorias','empates','derrotas'];
 const POS={
@@ -27,16 +29,14 @@ function derived(p){const s=p.stats,o=[];
  if(p.pos==='Lateral')o.push(['% centros',pct(s.centros_acertados,s.centros)]);
  o.push(['Goles / partido',(s.goles/Math.max(s.partidos,1)).toFixed(2),null]);return o}
 // ---------- seed ----------
-function seed(){if(DB.get('seeded'))return;
- const mk=(n,ap,num,pos,eq,st)=>({id:uid(),nombre:n,apodo:ap,num,pos,equipo:eq,pie:'Derecho',nivel:'Intermedio',stats:Object.assign(Object.fromEntries([...GEN,...POS[pos]].map(k=>[k,0])),st)});
- DB.set('players',[mk('Carlos Pérez','Charly',9,'Delantero','Black Storm',{partidos:24,goles:31,asistencias:18,mvp:4,victorias:15,empates:4,derrotas:5,tiros:96,tiros_arco:54,regates:40,regates_exitosos:26}),
-  mk('Andrés Ruiz','Muro',1,'Portero','White FC',{partidos:20,goles:0,asistencias:1,mvp:3,victorias:11,empates:3,derrotas:6,atajadas:88,goles_recibidos:27,porterias_cero:6})]);
- DB.set('me',DB.get('players')[0].id);
- const d=n=>{const x=new Date(Date.now()+n*864e5);return x.toISOString().slice(0,10)};
- DB.set('matches',[{id:uid(),nombre:'Black Storm vs Amigos',modo:'Fútbol 7',fecha:d(0),hora:'19:00',cancha:'Cancha Sintética',max:12,precio:8000,nivel:'Intermedio',publico:true,desc:'',conf:9,faltan:['Portero','Defensa'],reqs:[]},
-  {id:uid(),nombre:'Micro del sábado',modo:'Fútbol 5',fecha:d(3),hora:'10:00',cancha:'La Bombonera',max:10,precio:5000,nivel:'Casual',publico:true,desc:'',conf:7,faltan:['Delantero','Libre'],reqs:[]}]);
- DB.set('notifs',[{id:uid(),t:'Bienvenido a MATCHDAY. Crea o busca un partido.',leida:false,f:Date.now()}]);
- DB.set('seeded',1)}
+function seed(){
+ if(DB.get('initialized'))return;
+ DB.set('players',[]);
+ DB.set('matches',[]);
+ DB.set('notifs',[{id:uid(),t:'Bienvenido a MATCHDAY. Crea tu primer partido o registra tu jugador.',leida:false,f:Date.now()}]);
+ DB.set('initialized',1);
+ DB.set('me',null);
+}
 // ---------- ui helpers ----------
 const $=s=>document.querySelector(s),dlg=$('#dlg');
 function toast(m,err){const t=$('#toast');t.textContent=m;t.className='show'+(err?' err':'');setTimeout(()=>t.className='',2200)}
@@ -64,16 +64,16 @@ matches(){const ms=DB.get('matches',[]);
  setTimeout(()=>{const f=()=>{const q=$('#fq').value.toLowerCase(),m=$('#fm').value;const r=DB.get('matches',[]).filter(x=>(!m||x.modo===m)&&(x.nombre+x.cancha).toLowerCase().includes(q));$('#mlist').innerHTML=r.length?r.map(matchCard).join(''):empty('Sin resultados.')};$('#fq').oninput=f;$('#fm').onchange=f;f()});
  return h},
 players(){const ps=DB.get('players',[]);
- return '<h1>Jugadores</h1><p class="sub">Cada posición tiene sus propias estadísticas</p><button class="btn" data-a="newPlayer" style="margin-bottom:14px">+ Registrar jugador</button><div class="grid">'+(ps.length?ps.map(p=>`<div class="card"><div class="lbl">#${p.num} · ${p.pos}</div><h3 style="margin:4px 0">${esc(p.nombre)}</h3><div class="lbl">${esc(p.equipo||'Sin equipo')}</div><div class="row" style="margin-top:12px"><button class="btn s" data-a="profile" data-id="${p.id}">Ver perfil</button><button class="btn s g" data-a="delPlayer" data-id="${p.id}">Eliminar</button></div></div>`).join(''):empty('Aún no hay jugadores.'))+'</div>'},
+ return '<h1>Jugadores</h1><p class="sub">Cada posición tiene sus propias estadísticas</p><button class="btn" data-a="newPlayer" style="margin-bottom:14px">+ Registrar jugador</button><div class="grid">'+(ps.length?ps.map(p=>`<div class="card"><div class="lbl">#${p.num} · ${p.pos}</div><h3 style="margin:4px 0">${esc(p.nombre)}</h3><div class="lbl">${esc(p.equipo||'Sin equipo')}</div><div class="row" style="margin-top:12px"><button class="btn s" data-a="profile" data-id="${p.id}">Ver perfil</button><button class="btn s g" data-a="delPlayer" data-id="${p.id}" ${isOwner(p)?'':'disabled'}>Eliminar</button></div></div>`).join(''):empty('Aún no hay jugadores.'))+'</div>'},
 notifs(){const ns=DB.get('notifs',[]);DB.set('notifs',ns.map(n=>({...n,leida:true})));setTimeout(badge);
  return '<h1>Notificaciones</h1><p class="sub">Tu actividad reciente</p>'+(ns.length?ns.map(n=>`<div class="card ${n.leida?'':'unread'}" style="margin-bottom:8px">${esc(n.t)}<div class="lbl">${new Date(n.f).toLocaleString('es')}</div></div>`).join(''):empty('Sin notificaciones.'))}
 };
-function matchCard(m){const pend=m.reqs.filter(r=>r.estado==='pendiente');
+function matchCard(m){const pend=(m.reqs||[]).filter(r=>r.estado==='pendiente');
  return `<div class="card"><span class="badge">${m.modo}</span><span class="badge">${m.nivel}</span><h3 style="margin:6px 0">${esc(m.nombre)}</h3><div class="lbl">${fdate(m.fecha)} · ${m.hora} · ${esc(m.cancha)}</div>
  <div style="margin-top:10px;font-weight:700">${m.conf} / ${m.max} jugadores</div><div class="bar"><i style="width:${pct(m.conf,m.max)}%"></i></div>
  ${m.faltan.length?'<div class="lbl">Faltan:</div>'+m.faltan.map(f=>`<span class="badge">${f}</span>`).join(''):'<span class="badge">Completo</span>'}
  <div class="lbl" style="margin:6px 0">$${(+m.precio).toLocaleString('es')}</div>
- <div class="row"><button class="btn s" data-a="join" data-id="${m.id}" ${m.conf>=m.max?'disabled':''}>QUIERO JUGAR</button>${pend.length?`<button class="btn s g" data-a="reqs" data-id="${m.id}">Solicitudes (${pend.length})</button>`:''}<button class="btn s g" data-a="delMatch" data-id="${m.id}">✕</button></div></div>`}
+ <div class="row"><button class="btn s" data-a="join" data-id="${m.id}" ${m.conf>=m.max?'disabled':''}>QUIERO JUGAR</button>${isOwner(m)&&pend.length?`<button class="btn s g" data-a="reqs" data-id="${m.id}">Solicitudes (${pend.length})</button>`:''}${isOwner(m)?`<button class="btn s g" data-a="editMatch" data-id="${m.id}">Editar</button><button class="btn s g" data-a="delMatch" data-id="${m.id}">✕</button>`:''}</div></div>`}
 // ---------- acciones ----------
 const A={
 go(e){show(e.dataset.v)},
@@ -85,20 +85,29 @@ newMatch(){openM(`<h2 style="margin-top:0">Crear partido</h2><form id="f"><label
  <label>Posiciones que faltan</label><select name="faltan" multiple size="4">${['Portero','Defensa','Lateral','Mediocampista','Extremo','Delantero','Libre'].map(x=>`<option>${x}</option>`).join('')}</select>
  <div class="row" style="margin-top:14px"><button class="btn">Crear</button><button type="button" class="btn g" onclick="dlg.close()">Cancelar</button></div></form>`);
  $('#f').onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);
-  DB.add('matches',{id:uid(),nombre:f.get('nombre'),modo:f.get('modo'),fecha:f.get('fecha'),hora:f.get('hora'),cancha:f.get('cancha'),max:+f.get('max'),precio:+f.get('precio'),nivel:f.get('nivel'),publico:!!f.get('publico'),desc:'',conf:1,faltan:f.getAll('faltan'),reqs:[]});
+  DB.add('matches',{id:uid(),owner:SESSION,nombre:f.get('nombre'),modo:f.get('modo'),fecha:f.get('fecha'),hora:f.get('hora'),cancha:f.get('cancha'),max:+f.get('max'),precio:+f.get('precio'),nivel:f.get('nivel'),publico:!!f.get('publico'),desc:'',conf:1,faltan:f.getAll('faltan'),reqs:[]});
   notify('Creaste el partido "'+f.get('nombre')+'".');dlg.close();toast('Partido creado');show('matches')}},
-join(e){const m=DB.get('matches').find(x=>x.id===e.dataset.id);
+join(e){const m=DB.get('matches').find(x=>x.id===e.dataset.id);if(!m){toast('Partido no encontrado',true);return}if(m.owner===SESSION){toast('No puedes solicitarte a tu propio partido',true);return}if((m.reqs||[]).some(r=>r.owner===SESSION&&r.estado==='pendiente')){toast('Ya tienes una solicitud pendiente',true);return}
  openM(`<h2 style="margin-top:0">Solicitar entrar a ${esc(m.nombre)}</h2><form id="f"><label>Tu posición</label><select name="pos">${Object.keys(POS).map(x=>`<option>${x}</option>`).join('')}</select><label>Comentario (opcional)</label><textarea name="c"></textarea>
  <label><input type="checkbox" name="ok" required style="width:auto"> Confirmo mi disponibilidad</label><div class="row" style="margin-top:14px"><button class="btn">Enviar solicitud</button><button type="button" class="btn g" onclick="dlg.close()">Cancelar</button></div></form>`);
  $('#f').onsubmit=ev=>{ev.preventDefault();const f=new FormData(ev.target);
-  DB.upd('matches',m.id,o=>o.reqs.push({id:uid(),pos:f.get('pos'),c:f.get('c'),estado:'pendiente'}));
+  DB.upd('matches',m.id,o=>{o.reqs=o.reqs||[];o.reqs.push({id:uid(),owner:SESSION,pos:f.get('pos'),c:f.get('c'),estado:'pendiente'})});
   notify('Enviaste tu solicitud a "'+m.nombre+'".');dlg.close();toast('Solicitud enviada');show(cur)}},
-reqs(e){const m=DB.get('matches').find(x=>x.id===e.dataset.id);
+reqs(e){const m=DB.get('matches').find(x=>x.id===e.dataset.id); if(!isOwner(m)){toast('Solo el creador puede gestionar solicitudes',true);return}
  openM(`<h2 style="margin-top:0">Solicitudes · ${esc(m.nombre)}</h2>`+m.reqs.filter(r=>r.estado==='pendiente').map(r=>`<div class="card" style="margin-bottom:8px"><b>${r.pos}</b><div class="lbl">${esc(r.c||'Sin comentario')}</div><div class="row" style="margin-top:8px"><button class="btn s" data-a="resp" data-m="${m.id}" data-id="${r.id}" data-ok="1">Aceptar</button><button class="btn s r" data-a="resp" data-m="${m.id}" data-id="${r.id}">Rechazar</button></div></div>`).join('')||empty('Sin solicitudes.'))},
-resp(e){const ok=!!e.dataset.ok;DB.upd('matches',e.dataset.m,m=>{const r=m.reqs.find(x=>x.id===e.dataset.id);r.estado=ok?'aceptada':'rechazada';if(ok){m.conf=Math.min(m.max,m.conf+1);const i=m.faltan.indexOf(r.pos);if(i>-1)m.faltan.splice(i,1);else{const j=m.faltan.indexOf('Libre');if(j>-1)m.faltan.splice(j,1)}}});
+resp(e){const m0=DB.get('matches').find(x=>x.id===e.dataset.m);if(!isOwner(m0)){toast('Solo el creador puede responder solicitudes',true);return}const ok=!!e.dataset.ok;DB.upd('matches',e.dataset.m,m=>{const r=m.reqs.find(x=>x.id===e.dataset.id);r.estado=ok?'aceptada':'rechazada';if(ok){m.conf=Math.min(m.max,m.conf+1);const i=m.faltan.indexOf(r.pos);if(i>-1)m.faltan.splice(i,1);else{const j=m.faltan.indexOf('Libre');if(j>-1)m.faltan.splice(j,1)}}});
  notify(ok?'Fuiste aceptado en el partido.':'Tu solicitud fue rechazada.');dlg.close();toast(ok?'Jugador aceptado':'Solicitud rechazada');show(cur)},
-delMatch(e){DB.del('matches',e.dataset.id);toast('Partido eliminado');show(cur)},
-delPlayer(e){DB.del('players',e.dataset.id);toast('Jugador eliminado');show('players')},
+editMatch(e){const m=DB.get('matches').find(x=>x.id===e.dataset.id);if(!isOwner(m)){toast('Solo el creador puede editar este partido',true);return}
+ openM(`<h2 style="margin-top:0">Editar partido</h2><form id="f"><label>Nombre</label><input name="nombre" value="${esc(m.nombre)}" required>
+ <div class="f2"><div><label>Modalidad</label><select name="modo">${['Fútbol 5','Fútbol 7','Fútbol 8','Fútbol 11','Personalizado'].map(x=>`<option ${x===m.modo?'selected':''}>${x}</option>`).join('')}</select></div><div><label>Nivel</label><select name="nivel">${['Casual','Intermedio','Avanzado'].map(x=>`<option ${x===m.nivel?'selected':''}>${x}</option>`).join('')}</select></div>
+ <div><label>Fecha</label><input type="date" name="fecha" value="${m.fecha}" required></div><div><label>Hora</label><input type="time" name="hora" value="${m.hora}" required></div>
+ <div><label>Cancha</label><input name="cancha" value="${esc(m.cancha)}" required></div><div><label>Nº de jugadores</label><input type="number" name="max" min="2" value="${m.max}" required></div>
+ <div><label>Precio aprox.</label><input type="number" name="precio" min="0" value="${m.precio}"></div><div><label>Visibilidad</label><select name="publico"><option value="1" ${m.publico?'selected':''}>Público</option><option value="" ${!m.publico?'selected':''}>Privado</option></select></div></div>
+ <label>Posiciones que faltan</label><select name="faltan" multiple size="4">${['Portero','Defensa','Lateral','Mediocampista','Extremo','Delantero','Libre'].map(x=>`<option ${(m.faltan||[]).includes(x)?'selected':''}>${x}</option>`).join('')}</select>
+ <div class="row" style="margin-top:14px"><button class="btn">Guardar cambios</button><button type="button" class="btn g" onclick="dlg.close()">Cancelar</button></div></form>`);
+ $('#f').onsubmit=ev=>{ev.preventDefault();const f=new FormData(ev.target);DB.upd('matches',m.id,o=>{o.nombre=f.get('nombre');o.modo=f.get('modo');o.nivel=f.get('nivel');o.fecha=f.get('fecha');o.hora=f.get('hora');o.cancha=f.get('cancha');o.max=+f.get('max');o.precio=+f.get('precio');o.publico=!!f.get('publico');o.faltan=f.getAll('faltan');o.conf=Math.min(o.conf,o.max)});dlg.close();toast('Partido actualizado');show(cur)}},
+delMatch(e){const m=DB.get('matches').find(x=>x.id===e.dataset.id);if(!isOwner(m)){toast('Solo el creador puede eliminar este partido',true);return}DB.del('matches',e.dataset.id);toast('Partido eliminado');show(cur)},
+delPlayer(e){const p=DB.get('players').find(x=>x.id===e.dataset.id);if(!isOwner(p)){toast('Solo puedes eliminar jugadores registrados por ti',true);return}DB.del('players',e.dataset.id);if(DB.get('me')===e.dataset.id)DB.set('me',null);toast('Jugador eliminado');show('players')},
 newPlayer(){openM(`<h2 style="margin-top:0">Registrar jugador</h2><form id="f"><div class="f2"><div><label>Nombre</label><input name="nombre" required></div><div><label>Apodo</label><input name="apodo"></div>
  <div><label>Número</label><input type="number" name="num" min="1" max="99" required></div><div><label>Equipo</label><input name="equipo"></div>
  <div><label>Posición</label><select name="pos" id="pp">${Object.keys(POS).map(x=>`<option>${x}</option>`).join('')}</select></div><div><label>Pie dominante</label><select name="pie"><option>Derecho</option><option>Izquierdo</option><option>Ambos</option></select></div></div>
@@ -107,7 +116,7 @@ newPlayer(){openM(`<h2 style="margin-top:0">Registrar jugador</h2><form id="f"><
  const draw=()=>{$('#sf').innerHTML=[...GEN.slice(0,7),...POS[$('#pp').value]].map(k=>`<div><label>${nm(k)}</label><input type="number" min="0" name="s_${k}" value="0"></div>`).join('')};
  $('#pp').onchange=draw;draw();
  $('#f').onsubmit=e=>{e.preventDefault();const f=new FormData(e.target),pos=f.get('pos'),st={};[...GEN,...POS[pos]].forEach(k=>st[k]=+f.get('s_'+k)||0);
-  const p={id:uid(),nombre:f.get('nombre'),apodo:f.get('apodo'),num:+f.get('num'),pos,equipo:f.get('equipo'),pie:f.get('pie'),nivel:f.get('nivel'),stats:st};DB.add('players',p);if(!DB.get('me'))DB.set('me',p.id);
+  const p={id:uid(),owner:SESSION,nombre:f.get('nombre'),apodo:f.get('apodo'),num:+f.get('num'),pos,equipo:f.get('equipo'),pie:f.get('pie'),nivel:f.get('nivel'),stats:st};DB.add('players',p);if(!DB.get('me'))DB.set('me',p.id);
   notify('Registraste a '+p.nombre+' ('+pos+').');dlg.close();toast('Jugador registrado');show('players')}},
 profile(e){const p=DB.get('players').find(x=>x.id===e.dataset.id),s=p.stats,mx=Math.max(1,...Object.values(s));
  openM(`<div class="pcard"><div class="n">${p.num}</div><h2 style="margin:0;color:var(--tx)">${esc(p.nombre)}${p.apodo?' "'+esc(p.apodo)+'"':''}</h2><div class="lbl">${p.pos} · ${esc(p.equipo||'Sin equipo')} · Pie ${p.pie}</div>
