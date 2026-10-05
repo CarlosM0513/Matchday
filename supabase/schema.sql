@@ -109,3 +109,9 @@ using (user_id = auth.uid()) with check (user_id = auth.uid());
 alter publication supabase_realtime add table public.matches;
 alter publication supabase_realtime add table public.match_requests;
 alter publication supabase_realtime add table public.notifications;
+
+-- Publicar perfiles en Realtime para sincronizar la lista de jugadores.
+do $$ begin
+  alter publication supabase_realtime add table public.profiles;
+exception when duplicate_object then null;
+end $$;
