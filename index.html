@@ -1,1 +1,26 @@
-<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>MATCHDAY</title><link rel="stylesheet" href="css/style.css?v=20261006"></head><body><div id="root"></div><dialog id="dlg"></dialog><script src="https://unpkg.com/react@18/umd/react.development.js"></script><script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script><script src="https://unpkg.com/@babel/standalone/babel.min.js"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="js/supabase.js?v=20261006"></script><script src="js/api.js?v=20261006"></script><script type="text/babel" data-presets="react" src="js/app.jsx"></script></body></html>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>MATCHDAY</title>
+  <link rel="stylesheet" href="css/style.css?v=20261006-fix1">
+</head>
+<body>
+  <aside>
+    <div class="logo">MATCH<b>DAY</b></div>
+    <nav id="nav">
+      <button class="on" data-s="dash">Inicio</button>
+      <button data-s="matches">Partidos</button>
+      <button data-s="players">Jugadores</button>
+      <button data-s="notifs">Avisos <span id="cnt" class="dot" hidden>0</span></button>
+      <button data-a="logout">Cerrar sesión</button>
+    </nav>
+  </aside>
+  <main id="main"></main>
+  <dialog id="dlg"></dialog>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase.js?v=20261006-fix1"></script>
+  <script src="js/app.js?v=20261006-fix1"></script>
+</body>
+</html>
