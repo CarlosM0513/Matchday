@@ -57,20 +57,15 @@ async function ensureProfile(){
 
 async function editOwnProfile(){
  if(!session||!me){toast('Primero registra tu jugador',true);return}
- const s=me.stats||{}, pos=me.pos||'Delantero';
- const keys=[...GEN,...(POS[pos]||[])].filter((v,i,a)=>a.indexOf(v)===i);
- openM('<div class="profile-editor"><div class="profile-editor-head"><div class="eyebrow">MATCHDAY · MI PERFIL</div><h2 style="margin:4px 0">Editar mis números</h2><div class="lbl">Actualiza tus datos y tus estadísticas.</div></div>'+
- '<form id="editProfileForm"><div class="f2"><div><label>Nombre</label><input name="nombre" value="'+esc(me.nombre)+'" required></div><div><label>Apodo</label><input name="apodo" value="'+esc(me.apodo||'')+'"></div><div><label>Número de camiseta</label><input type="number" name="num" min="1" max="99" value="'+(me.num||1)+'" required></div><div><label>Equipo</label><input name="equipo" value="'+esc(me.equipo||'')+'"></div></div>'+
- '<div class="profile-edit-info"><span>POSICIÓN</span><b>'+esc(pos)+'</b><span>NIVEL</span><b>'+esc(me.nivel||'Casual')+'</b></div>'+
- '<h3 class="profile-section-title">Estadísticas generales</h3><div class="stats-edit-grid">'+keys.map(k=>'<div class="stat-edit"><label>'+esc(nm(k))+'</label><input type="number" min="0" name="s_'+esc(k)+'" value="'+Number(s[k]||0)+'"></div>').join('')+'</div>'+
- '<div class="row profile-actions"><button class="btn" type="submit">Guardar cambios</button><button class="btn g" type="button" onclick="dlg.close()">Cancelar</button></div></form></div>');
- $('#editProfileForm').onsubmit=async e=>{
-   e.preventDefault();const f=new FormData(e.target),stats={};
-   keys.forEach(k=>stats[k]=Math.max(0,Number(f.get('s_'+k))||0));
-   const {error}=await sb.from('profiles').update({nombre:f.get('nombre'),apodo:f.get('apodo'),num:Math.max(1,Math.min(99,Number(f.get('num'))||1)),equipo:f.get('equipo'),stats}).eq('id',session.user.id);
-   if(error){toast(error.message,true);return}
-   dlg.close();toast('Perfil y números actualizados');await refresh();
- };
+ const name=prompt('Nombre:',me.nombre);if(name===null)return;
+ const nick=prompt('Apodo:',me.apodo||'');if(nick===null)return;
+ const team=prompt('Equipo:',me.equipo||'');if(team===null)return;
+ const level=prompt('Nivel (Casual, Intermedio o Avanzado):',me.nivel||'Casual');if(level===null)return;
+ const stats=Object.assign({},me.stats||{});
+ for(const k of Object.keys(stats)){const v=prompt('Estadística '+nm(k)+':',String(stats[k]||0));if(v===null)return;stats[k]=Math.max(0,Number(v)||0)}
+ const {error}=await sb.from('profiles').update({nombre:name,apodo:nick,equipo:team,nivel:level,stats:stats}).eq('id',session.user.id);
+ if(error){toast(error.message,true);return}
+ dlg.close();toast('Perfil y estadísticas actualizados');await refresh()
 }
 
 function authScreen(){
