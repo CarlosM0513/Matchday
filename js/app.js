@@ -200,14 +200,11 @@ const A={
  },
  async profile(e){
   const p=players.find(x=>x.id===e.dataset.id);if(!p)return;
-  const s=p.stats||{}, highlights=derived(p), posStats=POS[p.pos]||[];
+  const s=p.stats||{},posStats=POS[p.pos]||[];
   const initials=esc((p.nombre||'?').split(/\\s+/).map(x=>x[0]).slice(0,2).join('').toUpperCase());
-  const photo=p.foto_url?'<img class="player-photo" src="'+esc(p.foto_url)+'" alt="Foto de '+esc(p.nombre)+'">':'<div class="player-avatar">'+initials+'</div>';
-  openM('<div class="player-profile"><div class="player-hero">'+photo+'<div class="player-hero-info"><div class="eyebrow">MATCHDAY PLAYER</div><h2>'+esc(p.nombre)+'</h2><div class="player-meta">'+(p.apodo?'“'+esc(p.apodo)+'” · ':'')+esc(p.pos||'Sin posición')+' · #'+(p.num||'-')+'</div><div class="player-team">'+esc(p.equipo||'Sin equipo')+' · '+esc(p.nivel||'Casual')+' · Pie '+esc(p.pie||'-')+'</div></div></div>'+
-  '<div class="profile-stats-grid">'+[['Partidos',s.partidos||0],['Goles',s.goles||0],['Asistencias',s.asistencias||0],['MVP',s.mvp||0]].map(x=>'<div class="profile-stat-card"><strong>'+x[1]+'</strong><span>'+x[0]+'</span></div>').join('')+'</div>'+
-  (highlights.length?'<h3 class="profile-section-title">Rendimiento destacado</h3><div class="highlight-list">'+highlights.map(d=>'<div class="highlight"><div><span>'+esc(d[0])+'</span><b>'+d[1]+(String(d[0]).startsWith('%')?'%':'')+'</b></div><div class="bar"><i style="width:'+String(d[2]?pct(d[1],d[2]):Math.min(100,+d[1]||0))+'%"></i></div></div>').join('')+'</div>':'')+
-  '<h3 class="profile-section-title">Estadísticas de '+esc(p.pos||'posición')+'</h3><div class="position-stats">'+(posStats.length?posStats.map(k=>'<div class="position-stat"><span>'+esc(nm(k))+'</span><b>'+Number(s[k]||0)+'</b></div>').join(''):empty('Sin estadísticas de posición.'))+'</div>'+
-  '<div class="row profile-actions">'+(p.id===session.user.id?'<button class="btn" data-a="editOwnProfile">Editar mi perfil</button>':'')+'<button class="btn g" onclick="dlg.close()">Cerrar</button></div></div>');
+  const photo=p.foto_url?'<img class="player-card-photo" src="'+esc(p.foto_url)+'" alt="Foto de '+esc(p.nombre)+'">':'<div class="player-card-photo player-card-placeholder"><span>'+initials+'</span><small>SUBIR FOTO</small></div>';
+  const general=[['Partidos',s.partidos||0],['Goles',s.goles||0],['Asistencias',s.asistencias||0],['MVP',s.mvp||0]];
+  openM('<div class="footballer-card"><div class="footballer-top"><div class="footballer-photo-wrap">'+photo+'<div class="photo-number">#'+(p.num||'-')+'</div></div><div class="footballer-info"><div class="eyebrow">MATCHDAY PLAYER</div><h2>'+esc(p.nombre)+'</h2><div class="footballer-nick">'+(p.apodo?'“'+esc(p.apodo)+'”':'')+'</div><div class="footballer-position">'+esc(p.pos||'Sin posición')+'</div><div class="footballer-details"><span>'+esc(p.equipo||'Sin equipo')+'</span><span>'+esc(p.nivel||'Casual')+'</span><span>Pie '+esc(p.pie||'-')+'</span></div></div></div><div class="footballer-general">'+general.map(x=>'<div><strong>'+x[1]+'</strong><span>'+x[0]+'</span></div>').join('')+'</div><div class="footballer-section-title">ESTADÍSTICAS · '+esc(p.pos||'JUGADOR')+'</div><div class="footballer-position-stats">'+(posStats.length?posStats.map(k=>'<div class="footballer-stat"><span>'+esc(nm(k))+'</span><b>'+Number(s[k]||0)+'</b></div>').join(''):empty('Sin estadísticas registradas.'))+'</div><div class="footballer-actions">'+(p.id===session.user.id?'<button class="btn" data-a="editOwnProfile">Editar mi perfil</button>':'')+'<button class="btn g" onclick="dlg.close()">Cerrar</button></div></div>');
  }
  async logout(){await sb.auth.signOut();location.reload()}
 };
