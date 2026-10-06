@@ -57,31 +57,22 @@ async function ensureProfile(){
 
 async function editOwnProfile(){
  if(!session||!me){toast('Primero registra tu jugador',true);return}
- const s=me.stats||{};
- openM(`<div class="profile-editor">
- <div class="profile-editor-head"><div><div class="eyebrow">MATCHDAY · MI PERFIL</div><h2 style="margin:4px 0">Editar jugador</h2><div class="lbl">Actualiza tus datos y estadísticas.</div></div></div>
- <form id="pf">
- <div class="f2">
-  <div><label>Nombre</label><input name="nombre" value="${esc(me.nombre)}" required></div>
-  <div><label>Apodo</label><input name="apodo" value="${esc(me.apodo||'')}"></div>
-  <div><label>Número</label><input type="number" name="num" min="1" max="99" value="${me.num||''}" required></div>
-  <div><label>Equipo</label><input name="equipo" value="${esc(me.equipo||'')}"></div>
-  <div><label>Posición</label><select name="pos" id="ep">${Object.keys(POS).map(x=>`<option ${x===me.pos?'selected':''}>${x}</option>`).join('')}</select></div>
-  <div><label>Pie dominante</label><select name="pie"><option ${me.pie==='Derecho'?'selected':''}>Derecho</option><option ${me.pie==='Izquierdo'?'selected':''}>Izquierdo</option><option ${me.pie==='Ambos'?'selected':''}>Ambos</option></select></div>
- </div>
- <label>Nivel</label><select name="nivel"><option ${me.nivel==='Casual'?'selected':''}>Casual</option><option ${me.nivel==='Intermedio'?'selected':''}>Intermedio</option><option ${me.nivel==='Avanzado'?'selected':''}>Avanzado</option></select>
- <h2>Estadísticas</h2><div class="stats-edit-grid" id="esf"></div>
- <div class="row" style="margin-top:18px"><button class="btn">Guardar cambios</button><button type="button" class="btn g" onclick="dlg.close()">Cancelar</button></div>
- </form></div>`);
- const draw=()=>{$('#esf').innerHTML=[...GEN,...POS[$('#ep').value]].filter((v,i,a)=>a.indexOf(v)===i).map(k=>`<div class="stat-edit"><label>${nm(k)}</label><input type="number" min="0" name="s_${k}" value="${Number(s[k]||0)}"></div>`).join('')};
- $('#ep').onchange=draw;draw();
- $('#pf').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target),pos=f.get('pos'),stats={};[...GEN,...POS[pos]].filter((v,i,a)=>a.indexOf(v)===i).forEach(k=>stats[k]=+f.get('s_'+k)||0);const {error}=await sb.from('profiles').update({nombre:f.get('nombre'),apodo:f.get('apodo'),num:+f.get('num'),pos,equipo:f.get('equipo'),pie:f.get('pie'),nivel:f.get('nivel'),stats}).eq('id',session.user.id);if(error){toast(error.message,true);return}dlg.close();toast('Perfil actualizado');await refresh()}
+ const name=prompt('Nombre:',me.nombre);if(name===null)return;
+ const nick=prompt('Apodo:',me.apodo||'');if(nick===null)return;
+ const team=prompt('Equipo:',me.equipo||'');if(team===null)return;
+ const level=prompt('Nivel (Casual, Intermedio o Avanzado):',me.nivel||'Casual');if(level===null)return;
+ const stats=Object.assign({},me.stats||{});
+ for(const k of Object.keys(stats)){const v=prompt('Estadística '+nm(k)+':',String(stats[k]||0));if(v===null)return;stats[k]=Math.max(0,Number(v)||0)}
+ const {error}=await sb.from('profiles').update({nombre:name,apodo:nick,equipo:team,nivel:level,stats:stats}).eq('id',session.user.id);
+ if(error){toast(error.message,true);return}
+ dlg.close();toast('Perfil y estadísticas actualizados');await refresh()
 }
+
 function authScreen(){
  $('#main').innerHTML=`<section>
  <h1>Bienvenido a MATCHDAY</h1>
  <p class="sub">Inicia sesión para crear partidos, registrar tu jugador y jugar con otras personas.</p>
- <div class="auth-hero" style="margin-top:18px"><div class="auth-photo"></div><div class="auth-copy"><div class="eyebrow">FÚTBOL · AMIGOS · BARRIO</div><h2>Hoy hay partido.</h2><p>Encuentra jugadores, arma tu equipo y lleva tus estadísticas partido a partido.</p></div></div><div class="card" style="max-width:520px;margin-top:18px">
+ <div class="card" style="max-width:520px;margin-top:18px">
  <form id="authForm">
   <label>Correo electrónico</label><input type="email" name="email" required autocomplete="email">
   <label>Contraseña</label><input type="password" name="password" required minlength="6" autocomplete="current-password">
@@ -203,26 +194,15 @@ const A={
   $('#f').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target),pos=f.get('pos'),st={};[...GEN,...POS[pos]].filter((v,i,a)=>a.indexOf(v)===i).forEach(k=>st[k]=+f.get('s_'+k)||0);const p={id:session.user.id,nombre:f.get('nombre'),apodo:f.get('apodo'),num:+f.get('num'),pos,equipo:f.get('equipo'),pie:f.get('pie'),nivel:f.get('nivel'),stats:st};const {error}=await sb.from('profiles').insert(p);if(error){toast(error.message,true);return}dlg.close();toast('Jugador registrado');await refresh()}
  },
  async profile(e){
- const p=players.find(x=>x.id===e.dataset.id);if(!p)return;
- const s=p.stats||{}, highlights=derived(p), positionStats=POS[p.pos]||[];
- const initials=esc((p.nombre||'?').split(' ').map(x=>x[0]).slice(0,2).join('').toUpperCase());
- openM(`<div class="player-profile">
- <div class="player-hero">
-  <div class="player-avatar">${initials}</div>
-  <div class="player-hero-info"><div class="eyebrow">MATCHDAY PLAYER</div><h2>${esc(p.nombre)}</h2><div class="player-meta">${p.apodo?'“'+esc(p.apodo)+'” · ':''}${esc(p.pos||'Sin posición')} · #${p.num||'-'}</div><div class="player-team">${esc(p.equipo||'Sin equipo')} · ${esc(p.nivel||'Casual')}</div></div>
- </div>
- <div class="profile-stats-grid">${[['Partidos',s.partidos||0],['Goles',s.goles||0],['Asistencias',s.asistencias||0],['MVP',s.mvp||0]].map(x=>`<div class="profile-stat-card"><strong>${x[1]}</strong><span>${x[0]}</span></div>`).join('')}</div>
- ${highlights.length?`<h3 class="profile-section-title">Rendimiento destacado</h3><div class="highlight-list">${highlights.map(d=>`<div class="highlight"><div><span>${esc(d[0])}</span><b>${d[1]}${String(d[0]).startsWith('%')?'%':''}</b></div><div class="bar"><i style="width:${d[2]?pct(d[1],d[2]):Math.min(100,+d[1]||0)}%"></i></div></div>`).join('')}</div>`:''}
- <h3 class="profile-section-title">Estadísticas de ${esc(p.pos||'posición')}</h3>
- <div class="position-stats">${positionStats.length?positionStats.map(k=>`<div class="position-stat"><span>${nm(k)}</span><b>${s[k]||0}</b></div>`).join(''):empty('Sin estadísticas de posición.')}</div>
- <div class="row profile-actions">${p.id===session.user.id?'<button class="btn" data-a="editOwnProfile">Editar mi perfil</button>':''}<button class="btn g" onclick="dlg.close()">Cerrar</button></div>
- </div>`);
-}
+  const p=players.find(x=>x.id===e.dataset.id);if(!p)return;const s=p.stats||{},mx=Math.max(1,...Object.values(s).map(Number));
+  openM(`<div class="pcard"><div class="n">${p.num||'-'}</div><h2 style="margin:0;color:var(--tx)">${esc(p.nombre)}${p.apodo?' "'+esc(p.apodo)+'"':''}</h2><div class="lbl">${esc(p.pos||'')} · ${esc(p.equipo||'Sin equipo')} · Pie ${esc(p.pie||'-')}</div><div class="grid" style="margin-top:14px;grid-template-columns:repeat(4,1fr)">${[['Partidos',s.partidos||0],['Goles',s.goles||0],['Asist.',s.asistencias||0],['MVP',s.mvp||0]].map(x=>`<div><div class="stat" style="font-size:22px">${x[1]}</div><div class="lbl">${x[0]}</div></div>`).join('')}</div></div><h2>Destacadas · ${esc(p.pos||'')}</h2>${derived(p).map(d=>`<div class="lbl">${d[0]}: <b style="color:var(--tx)">${d[1]}${String(d[0]).startsWith('%')?'%':''}</b></div><div class="bar"><i data-w="${d[2]?pct(d[1],d[2]):Math.min(100,+d[1]||0)}"></i></div>`).join('')}<h2>Estadísticas de posición</h2>${(POS[p.pos]||[]).map(k=>`<div class="lbl">${nm(k)} · ${s[k]||0}</div><div class="bar"><i data-w="${pct(s[k]||0,mx)}"></i></div>`).join('')}<button class="btn g" onclick="dlg.close()">Cerrar</button>`);
+  setTimeout(()=>dlg.querySelectorAll('.bar i[data-w]').forEach(i=>i.style.width=i.dataset.w+'%'),60)
+ },
  async logout(){await sb.auth.signOut();location.reload()}
 };
 
 document.addEventListener('click',e=>{const t=e.target.closest('[data-a]');if(t&&A[t.dataset.a])A[t.dataset.a](t)});
-$('#nav').onclick=e=>{const b=e.target.closest('button[data-s]');if(b&&session)show(b.dataset.s)};
+$('#nav').onclick=e=>{if(e.target.dataset.s&&session)show(e.target.dataset.s)};
 async function markRead(){if(!session)return;const ids=notifs.filter(n=>!n.leida).map(n=>n.id);if(ids.length)await sb.from('notifications').update({leida:true}).in('id',ids);await loadAll();badge()}
 async function show(v){
  cur=v;
