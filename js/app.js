@@ -227,7 +227,7 @@ async function boot(){
   if(!session){authScreen();return}
   show('dash');
   try{await loadAll();show('dash')}catch(e){console.error(e);toast('No se pudieron cargar todos los datos. Revisa tu conexión.',true)}
- }catch(e){console.error(e);toast(e.message||'No se pudo iniciar Matchday',true);authScreen()}
+ }catch(e){console.error('MATCHDAY boot error:',e);const msg=e&&e.message?e.message:String(e||'Error desconocido');toast(msg,true);authScreen()}
 }
 sb.auth.onAuthStateChange(async(_,newSession)=>{session=newSession;if(session){document.querySelector('#nav').style.display='';resetIdleTimer();show(cur);try{await loadAll();show(cur)}catch(e){console.error(e);toast('No se pudieron actualizar los datos.',true)}}else{document.querySelector('#nav').style.display='none';authScreen()}});
 boot();
