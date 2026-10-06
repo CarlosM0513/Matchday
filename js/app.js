@@ -16,6 +16,10 @@ const fdate=f=>{const t=new Date().toISOString().slice(0,10);return f===t?'Hoy':
 const empty=t=>`<div class="empty">${t}</div>`;
 const $=s=>document.querySelector(s),dlg=$('#dlg');
 let cur='dash', session=null, me=null, players=[], matches=[], requests=[], notifs=[];
+const SESSION_IDLE_MS=30*60*1000;
+let idleTimer=null;
+function resetIdleTimer(){if(idleTimer)clearTimeout(idleTimer);if(!session)return;idleTimer=setTimeout(async()=>{await sb.auth.signOut();toast('Sesión cerrada por inactividad.');},SESSION_IDLE_MS)}
+['click','keydown','mousemove','touchstart'].forEach(ev=>document.addEventListener(ev,resetIdleTimer,{passive:true}));
 
 function toast(m,err){const t=$('#toast');t.textContent=m;t.className='show'+(err?' err':'');setTimeout(()=>t.className='',2200)}
 function openM(h){dlg.innerHTML=h;dlg.showModal()}
@@ -49,6 +53,19 @@ async function loadAll(){
 async function ensureProfile(){
  if(!session)return;
  me=players.find(p=>p.id===session.user.id)||null;
+}
+
+async function editOwnProfile(){
+ if(!session||!me){toast('Primero registra tu jugador',true);return}
+ const name=prompt('Nombre:',me.nombre);if(name===null)return;
+ const nick=prompt('Apodo:',me.apodo||'');if(nick===null)return;
+ const team=prompt('Equipo:',me.equipo||'');if(team===null)return;
+ const level=prompt('Nivel (Casual, Intermedio o Avanzado):',me.nivel||'Casual');if(level===null)return;
+ const stats=Object.assign({},me.stats||{});
+ for(const k of Object.keys(stats)){const v=prompt('Estadística '+nm(k)+':',String(stats[k]||0));if(v===null)return;stats[k]=Math.max(0,Number(v)||0)}
+ const {error}=await sb.from('profiles').update({nombre:name,apodo:nick,equipo:team,nivel:level,stats:stats}).eq('id',session.user.id);
+ if(error){toast(error.message,true);return}
+ dlg.close();toast('Perfil y estadísticas actualizados');await refresh()
 }
 
 function authScreen(){
@@ -100,7 +117,7 @@ const V={
   setTimeout(()=>{const f=()=>{const q=$('#fq').value.toLowerCase(),m=$('#fm').value;const r=matches.filter(x=>(!m||x.modo===m)&&(x.nombre+x.cancha).toLowerCase().includes(q));$('#mlist').innerHTML=r.length?r.map(matchCard).join(''):empty('Sin resultados.')};$('#fq').oninput=f;$('#fm').onchange=f;f()});return h
  },
  players(){
-  return '<h1>Jugadores</h1><p class="sub">Cada posición tiene sus propias estadísticas</p>'+(!me?'<button class="btn" data-a="newPlayer" style="margin-bottom:14px">+ Registrar jugador</button>':'<div class="lbl" style="margin-bottom:14px">Tu cuenta tiene un perfil de jugador.</div>')+'<div class="grid">'+(players.length?players.map(p=>`<div class="card"><div class="lbl">#${p.num||'-'} · ${esc(p.pos||'')}</div><h3 style="margin:4px 0">${esc(p.nombre)}</h3><div class="lbl">${esc(p.equipo||'Sin equipo')}</div><div class="row" style="margin-top:12px"><button class="btn s" data-a="profile" data-id="${p.id}">${p.id===session.user.id?'Mi perfil':'Ver perfil'}</button></div></div>`).join(''):empty('Aún no hay jugadores.'))+'</div>'
+  return '<h1>Jugadores</h1><p class="sub">Cada posición tiene sus propias estadísticas</p>'+(!me?'<button class="btn" data-a="newPlayer" style="margin-bottom:14px">+ Registrar jugador</button>':'<div class="row" style="margin-bottom:14px"><div class="lbl">Tu cuenta tiene un perfil de jugador.</div><button class="btn s" data-a="editOwnProfile">Editar mi perfil</button></div>')+'<div class="grid">'+(players.length?players.map(p=>`<div class="card"><div class="lbl">#${p.num||'-'} · ${esc(p.pos||'')}</div><h3 style="margin:4px 0">${esc(p.nombre)}</h3><div class="lbl">${esc(p.equipo||'Sin equipo')}</div><div class="row" style="margin-top:12px"><button class="btn s" data-a="profile" data-id="${p.id}">${p.id===session.user.id?'Mi perfil':'Ver perfil'}</button></div></div>`).join(''):empty('Aún no hay jugadores.'))+'</div>'
  },
  notifs(){
   const ns=notifs;return '<h1>Notificaciones</h1><p class="sub">Tu actividad reciente</p>'+(ns.length?ns.map(n=>`<div class="card ${n.leida?'':'unread'}" style="margin-bottom:8px">${esc(n.texto)}<div class="lbl">${new Date(n.created_at).toLocaleString('es-CO')}</div></div>`).join(''):empty('Sin notificaciones.'))
@@ -119,6 +136,7 @@ function matchCard(m){
 
 const A={
  go(e){show(e.dataset.v)},
+ editOwnProfile(){editOwnProfile()},
  async newMatch(){
   if(!session){toast('Inicia sesión primero',true);return}
   openM(`<h2 style="margin-top:0">Crear partido</h2><form id="f"><label>Nombre</label><input name="nombre" required>
@@ -198,6 +216,7 @@ async function boot(){
  const {data,error}=await sb.auth.getSession();if(error){toast(error.message,true);return}
  session=data.session;
  document.querySelector('#nav').style.display=session?'':'none';
+ resetIdleTimer();
  if(session){await loadAll();document.querySelector('#main').innerHTML='<section><div class="card">Cargando MATCHDAY…</div></section>';show('dash')}
  else authScreen()
 }
