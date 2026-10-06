@@ -81,7 +81,7 @@ function authScreen(){
  $('#main').innerHTML=`<section>
  <h1>Bienvenido a MATCHDAY</h1>
  <p class="sub">Inicia sesión para crear partidos, registrar tu jugador y jugar con otras personas.</p>
- <div class="card" style="max-width:520px;margin-top:18px">
+ <div class="auth-hero" style="margin-top:18px"><div class="auth-photo"></div><div class="auth-copy"><div class="eyebrow">FÚTBOL · AMIGOS · BARRIO</div><h2>Hoy hay partido.</h2><p>Encuentra jugadores, arma tu equipo y lleva tus estadísticas partido a partido.</p></div></div><div class="card" style="max-width:520px;margin-top:18px">
  <form id="authForm">
   <label>Correo electrónico</label><input type="email" name="email" required autocomplete="email">
   <label>Contraseña</label><input type="password" name="password" required minlength="6" autocomplete="current-password">
@@ -222,7 +222,7 @@ const A={
 };
 
 document.addEventListener('click',e=>{const t=e.target.closest('[data-a]');if(t&&A[t.dataset.a])A[t.dataset.a](t)});
-$('#nav').onclick=e=>{if(e.target.dataset.s&&session)show(e.target.dataset.s)};
+$('#nav').onclick=e=>{const b=e.target.closest('button[data-s]');if(b&&session)show(b.dataset.s)};
 async function markRead(){if(!session)return;const ids=notifs.filter(n=>!n.leida).map(n=>n.id);if(ids.length)await sb.from('notifications').update({leida:true}).in('id',ids);await loadAll();badge()}
 async function show(v){
  cur=v;
