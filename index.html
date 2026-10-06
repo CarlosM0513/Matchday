@@ -19,8 +19,54 @@
   </aside>
   <main id="main"></main>
   <dialog id="dlg"></dialog>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabase.js?v=20261006-fix1"></script>
-  <script src="js/app.js?v=20261006-stable1"></script>
+
+  <script>
+    // Arranque robusto: si el CDN principal falla, prueba un respaldo.
+    window.addEventListener('error', function(e) {
+      console.error('MATCHDAY:', e.error || e.message);
+      var main = document.getElementById('main');
+      if (main && (!main.innerHTML || main.innerHTML.trim() === '')) {
+        main.innerHTML = '<section><div class="card"><h2>No se pudo cargar MATCHDAY</h2><p class="sub">Se produjo un error al cargar la aplicación. Recarga la página en unos segundos.</p><pre style="white-space:pre-wrap;color:#ff7b7b;font-size:12px">' +
+          String(e.message || e.error || 'Error desconocido').replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]}) +
+          '</pre></div></section>';
+      }
+    });
+
+    function loadScript(src, fallback, done) {
+      var s=document.createElement('script');
+      s.src=src;
+      s.onload=done;
+      s.onerror=function(){
+        if(!fallback){ done(new Error('No se pudo cargar '+src)); return; }
+        var f=document.createElement('script');
+        f.src=fallback;
+        f.onload=done;
+        f.onerror=function(){ done(new Error('No se pudo cargar Supabase desde los CDNs disponibles.')); };
+        document.head.appendChild(f);
+      };
+      document.head.appendChild(s);
+    }
+
+    loadScript(
+      'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
+      'https://unpkg.com/@supabase/supabase-js@2',
+      function(err){
+        if(err){
+          document.getElementById('main').innerHTML='<section><div class="card"><h2>No se pudo iniciar MATCHDAY</h2><p class="sub">'+err.message+'</p></div></section>';
+          return;
+        }
+        var s=document.createElement('script');
+        s.src='js/supabase.js?v=20261006-stable2';
+        s.onload=function(){
+          var a=document.createElement('script');
+          a.src='js/app.js?v=20261006-stable2';
+          a.onerror=function(){document.getElementById('main').innerHTML='<section><div class="card"><h2>Error cargando la aplicación</h2><p class="sub">No se pudo cargar js/app.js.</p></div></section>';};
+          document.body.appendChild(a);
+        };
+        s.onerror=function(){document.getElementById('main').innerHTML='<section><div class="card"><h2>Error cargando Supabase</h2><p class="sub">No se pudo cargar js/supabase.js.</p></div></section>';};
+        document.body.appendChild(s);
+      }
+    );
+  </script>
 </body>
 </html>
