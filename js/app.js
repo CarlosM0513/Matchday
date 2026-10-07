@@ -203,7 +203,7 @@ const A={
   (highlights.length?'<h3 class="profile-section-title">Rendimiento destacado</h3><div class="highlight-list">'+highlights.map(d=>'<div class="highlight"><div><span>'+esc(d[0])+'</span><b>'+d[1]+(String(d[0]).startsWith('%')?'%':'')+'</b></div><div class="bar"><i style="width:'+String(d[2]?pct(d[1],d[2]):Math.min(100,+d[1]||0))+'%"></i></div></div>').join('')+'</div>':'')+
   '<h3 class="profile-section-title">Estadísticas de '+esc(p.pos||'posición')+'</h3><div class="position-stats">'+(posStats.length?posStats.map(k=>'<div class="position-stat"><span>'+esc(nm(k))+'</span><b>'+Number(s[k]||0)+'</b></div>').join(''):empty('Sin estadísticas de posición.'))+'</div>'+
   '<div class="row profile-actions">'+(p.id===session.user.id?'<button class="btn" data-a="editOwnProfile">Editar mi perfil</button>':'')+'<button class="btn g" onclick="dlg.close()">Cerrar</button></div></div>');
- }
+ },
  async logout(){await sb.auth.signOut();location.reload()}
 };
 
