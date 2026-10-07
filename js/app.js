@@ -194,15 +194,9 @@ const A={
   $('#f').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target),pos=f.get('pos'),st={};[...GEN,...POS[pos]].filter((v,i,a)=>a.indexOf(v)===i).forEach(k=>st[k]=+f.get('s_'+k)||0);const p={id:session.user.id,nombre:f.get('nombre'),apodo:f.get('apodo'),num:+f.get('num'),pos,equipo:f.get('equipo'),pie:f.get('pie'),nivel:f.get('nivel'),stats:st};const {error}=await sb.from('profiles').insert(p);if(error){toast(error.message,true);return}dlg.close();toast('Jugador registrado');await refresh()}
  },
  async profile(e){
-  const p=players.find(x=>x.id===e.dataset.id);if(!p)return;
-  const s=p.stats||{}, highlights=derived(p), posStats=POS[p.pos]||[];
-  const initials=esc((p.nombre||'?').split(/\\s+/).map(x=>x[0]).slice(0,2).join('').toUpperCase());
-  const photo=p.foto_url?'<img class="player-photo" src="'+esc(p.foto_url)+'" alt="Foto de '+esc(p.nombre)+'">':'<div class="player-avatar">'+initials+'</div>';
-  openM('<div class="player-profile"><div class="player-hero">'+photo+'<div class="player-hero-info"><div class="eyebrow">MATCHDAY PLAYER</div><h2>'+esc(p.nombre)+'</h2><div class="player-meta">'+(p.apodo?'“'+esc(p.apodo)+'” · ':'')+esc(p.pos||'Sin posición')+' · #'+(p.num||'-')+'</div><div class="player-team">'+esc(p.equipo||'Sin equipo')+' · '+esc(p.nivel||'Casual')+' · Pie '+esc(p.pie||'-')+'</div></div></div>'+
-  '<div class="profile-stats-grid">'+[['Partidos',s.partidos||0],['Goles',s.goles||0],['Asistencias',s.asistencias||0],['MVP',s.mvp||0]].map(x=>'<div class="profile-stat-card"><strong>'+x[1]+'</strong><span>'+x[0]+'</span></div>').join('')+'</div>'+
-  (highlights.length?'<h3 class="profile-section-title">Rendimiento destacado</h3><div class="highlight-list">'+highlights.map(d=>'<div class="highlight"><div><span>'+esc(d[0])+'</span><b>'+d[1]+(String(d[0]).startsWith('%')?'%':'')+'</b></div><div class="bar"><i style="width:'+String(d[2]?pct(d[1],d[2]):Math.min(100,+d[1]||0))+'%"></i></div></div>').join('')+'</div>':'')+
-  '<h3 class="profile-section-title">Estadísticas de '+esc(p.pos||'posición')+'</h3><div class="position-stats">'+(posStats.length?posStats.map(k=>'<div class="position-stat"><span>'+esc(nm(k))+'</span><b>'+Number(s[k]||0)+'</b></div>').join(''):empty('Sin estadísticas de posición.'))+'</div>'+
-  '<div class="row profile-actions">'+(p.id===session.user.id?'<button class="btn" data-a="editOwnProfile">Editar mi perfil</button>':'')+'<button class="btn g" onclick="dlg.close()">Cerrar</button></div></div>');
+  const p=players.find(x=>x.id===e.dataset.id);if(!p)return;const s=p.stats||{},mx=Math.max(1,...Object.values(s).map(Number));
+  openM(`<div class="pcard"><div class="n">${p.num||'-'}</div><h2 style="margin:0;color:var(--tx)">${esc(p.nombre)}${p.apodo?' "'+esc(p.apodo)+'"':''}</h2><div class="lbl">${esc(p.pos||'')} · ${esc(p.equipo||'Sin equipo')} · Pie ${esc(p.pie||'-')}</div><div class="grid" style="margin-top:14px;grid-template-columns:repeat(4,1fr)">${[['Partidos',s.partidos||0],['Goles',s.goles||0],['Asist.',s.asistencias||0],['MVP',s.mvp||0]].map(x=>`<div><div class="stat" style="font-size:22px">${x[1]}</div><div class="lbl">${x[0]}</div></div>`).join('')}</div></div><h2>Destacadas · ${esc(p.pos||'')}</h2>${derived(p).map(d=>`<div class="lbl">${d[0]}: <b style="color:var(--tx)">${d[1]}${String(d[0]).startsWith('%')?'%':''}</b></div><div class="bar"><i data-w="${d[2]?pct(d[1],d[2]):Math.min(100,+d[1]||0)}"></i></div>`).join('')}<h2>Estadísticas de posición</h2>${(POS[p.pos]||[]).map(k=>`<div class="lbl">${nm(k)} · ${s[k]||0}</div><div class="bar"><i data-w="${pct(s[k]||0,mx)}"></i></div>`).join('')}<button class="btn g" onclick="dlg.close()">Cerrar</button>`);
+  setTimeout(()=>dlg.querySelectorAll('.bar i[data-w]').forEach(i=>i.style.width=i.dataset.w+'%'),60)
  },
  async logout(){await sb.auth.signOut();location.reload()}
 };
@@ -219,15 +213,12 @@ async function show(v){
  document.querySelectorAll('#main .bar i').forEach(i=>{const w=i.style.width;i.style.width='0';setTimeout(()=>i.style.width=w,60)})
 }
 async function boot(){
- try{
-  const {data,error}=await sb.auth.getSession();if(error)throw error;
-  session=data.session;
-  document.querySelector('#nav').style.display=session?'':'none';
-  resetIdleTimer();
-  if(!session){authScreen();return}
-  show('dash');
-  try{await loadAll();show('dash')}catch(e){console.error(e);toast('No se pudieron cargar todos los datos. Revisa tu conexión.',true)}
- }catch(e){console.error('MATCHDAY boot error:',e);const msg=e&&e.message?e.message:String(e||'Error desconocido');toast(msg,true);authScreen()}
+ const {data,error}=await sb.auth.getSession();if(error){toast(error.message,true);return}
+ session=data.session;
+ document.querySelector('#nav').style.display=session?'':'none';
+ resetIdleTimer();
+ if(session){await loadAll();document.querySelector('#main').innerHTML='<section><div class="card">Cargando MATCHDAY…</div></section>';show('dash')}
+ else authScreen()
 }
-sb.auth.onAuthStateChange(async(_,newSession)=>{session=newSession;if(session){document.querySelector('#nav').style.display='';resetIdleTimer();show(cur);try{await loadAll();show(cur)}catch(e){console.error(e);toast('No se pudieron actualizar los datos.',true)}}else{document.querySelector('#nav').style.display='none';authScreen()}});
+sb.auth.onAuthStateChange(async()=>{const {data}=await sb.auth.getSession();session=data.session;if(session){await loadAll();show(cur)}else authScreen()});
 boot();
